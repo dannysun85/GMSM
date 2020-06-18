@@ -7,7 +7,6 @@ import (
 	"math/big"
 )
 
-// pkcs1PrivateKey is a structure which mirrors the PKCS#1 ASN.1 for an RSA private key.
 type pkcs1PrivateKey struct {
 	Version int
 	N       *big.Int
@@ -15,7 +14,6 @@ type pkcs1PrivateKey struct {
 	D       *big.Int
 	P       *big.Int
 	Q       *big.Int
-	// We ignore these values, if present, because rsa will calculate them.
 	Dp   *big.Int `asn1:"optional"`
 	Dq   *big.Int `asn1:"optional"`
 	Qinv *big.Int `asn1:"optional"`
@@ -26,12 +24,10 @@ type pkcs1PrivateKey struct {
 type pkcs1AdditionalRSAPrime struct {
 	Prime *big.Int
 
-	// We ignore these values because rsa will calculate them.
 	Exp   *big.Int
 	Coeff *big.Int
 }
 
-// ParsePKCS1PrivateKey returns an RSA private key from its ASN.1 PKCS#1 DER encoded form.
 func ParsePKCS1PrivateKey(der []byte) (*rsa.PrivateKey, error) {
 	var priv pkcs1PrivateKey
 	rest, err := asn1.Unmarshal(der, &priv)
@@ -65,8 +61,6 @@ func ParsePKCS1PrivateKey(der []byte) (*rsa.PrivateKey, error) {
 			return nil, errors.New("x509: private key contains zero or negative prime")
 		}
 		key.Primes[i+2] = a.Prime
-		// We ignore the other two values because rsa will calculate
-		// them as needed.
 	}
 
 	err = key.Validate()
@@ -78,7 +72,6 @@ func ParsePKCS1PrivateKey(der []byte) (*rsa.PrivateKey, error) {
 	return key, nil
 }
 
-// MarshalPKCS1PrivateKey converts a private key to ASN.1 DER encoded form.
 func MarshalPKCS1PrivateKey(key *rsa.PrivateKey) []byte {
 	key.Precompute()
 
@@ -110,7 +103,6 @@ func MarshalPKCS1PrivateKey(key *rsa.PrivateKey) []byte {
 	return b
 }
 
-// rsaPublicKey reflects the ASN.1 structure of a PKCS#1 public key.
 type rsaPublicKey struct {
 	N *big.Int
 	E int

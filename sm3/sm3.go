@@ -6,9 +6,9 @@ import (
 )
 
 type SM3 struct {
-	digest      [8]uint32 // digest represents the partial evaluation of V
-	length      uint64    // length of the message
-	unhandleMsg []byte    // uint8  //
+	digest      [8]uint32 
+	length      uint64    
+	unhandleMsg []byte    
 }
 
 func (sm3 *SM3) ff0(x, y, z uint32) uint32 { return x ^ y ^ z }
@@ -27,12 +27,12 @@ func (sm3 *SM3) leftRotate(x uint32, i uint32) uint32 { return (x<<(i%32) | x>>(
 
 func (sm3 *SM3) pad() []byte {
 	msg := sm3.unhandleMsg
-	msg = append(msg, 0x80) // Append '1'
-	blockSize := 64         // Append until the resulting message length (in bits) is congruent to 448 (mod 512)
+	msg = append(msg, 0x80) 
+	blockSize := 64         
 	for len(msg)%blockSize != 56 {
 		msg = append(msg, 0x00)
 	}
-	// append message length
+	
 	msg = append(msg, uint8(sm3.length>>56&0xff))
 	msg = append(msg, uint8(sm3.length>>48&0xff))
 	msg = append(msg, uint8(sm3.length>>40&0xff))
@@ -169,21 +169,15 @@ func New() hash.Hash {
 	return &sm3
 }
 
-// BlockSize, required by the hash.Hash interface.
-// BlockSize returns the hash's underlying block size.
-// The Write method must be able to accept any amount
-// of data, but it may operate more efficiently if all writes
-// are a multiple of the block size.
+
 func (sm3 *SM3) BlockSize() int { return 64 }
 
-// Size, required by the hash.Hash interface.
-// Size returns the number of bytes Sum will return.
+
 func (sm3 *SM3) Size() int { return 32 }
 
-// Reset clears the internal state by zeroing bytes in the state buffer.
-// This can be skipped for a newly-created hash state; the default zero-allocated state is correct.
+
 func (sm3 *SM3) Reset() {
-	// Reset digest
+	
 	sm3.digest[0] = 0x7380166f
 	sm3.digest[1] = 0x4914b2b9
 	sm3.digest[2] = 0x172442d7
@@ -193,35 +187,31 @@ func (sm3 *SM3) Reset() {
 	sm3.digest[6] = 0xe38dee4d
 	sm3.digest[7] = 0xb0fb0e4e
 
-	sm3.length = 0 // Reset numberic states
+	sm3.length = 0 
 	sm3.unhandleMsg = []byte{}
 }
 
-// Write, required by the hash.Hash interface.
-// Write (via the embedded io.Writer interface) adds more data to the running hash.
-// It never returns an error.
+
 func (sm3 *SM3) Write(p []byte) (int, error) {
 	toWrite := len(p)
 	sm3.length += uint64(len(p) * 8)
 	msg := append(sm3.unhandleMsg, p...)
 	nblocks := len(msg) / sm3.BlockSize()
 	sm3.update(msg, nblocks)
-	// Update unhandleMsg
+	
 	sm3.unhandleMsg = msg[nblocks*sm3.BlockSize():]
 
 	return toWrite, nil
 }
 
-// Sum, required by the hash.Hash interface.
-// Sum appends the current hash to b and returns the resulting slice.
-// It does not change the underlying hash state.
+
 func (sm3 *SM3) Sum(in []byte) []byte {
 	sm3.Write(in)
 	msg := sm3.pad()
-	//Finialize
+	
 	digest := sm3.update2(msg, len(msg)/sm3.BlockSize())
 
-	// save hash to in
+	
 	needed := sm3.Size()
 	if cap(in)-len(in) < needed {
 		newIn := make([]byte, len(in), len(in)+needed)

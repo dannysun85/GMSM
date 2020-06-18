@@ -17,19 +17,18 @@ type SM4Key []byte
 
 type KeySizeError int
 
-// Cipher is an instance of SM4 encryption.
 type Sm4Cipher struct {
 	subkeys []uint32
 	block1  []uint32
 	block2  []byte
 }
 
-// sm4密钥参量
+
 var fk = [4]uint32{
 	0xa3b1bac6, 0x56aa3350, 0x677d9197, 0xb27022dc,
 }
 
-// sm4密钥参量
+
 var ck = [32]uint32{
 	0x00070e15, 0x1c232a31, 0x383f464d, 0x545b6269,
 	0x70777e85, 0x8c939aa1, 0xa8afb6bd, 0xc4cbd2d9,
@@ -41,7 +40,7 @@ var ck = [32]uint32{
 	0x10171e25, 0x2c333a41, 0x484f565d, 0x646b7279,
 }
 
-// sm4密钥参量
+
 var sbox = [256]uint8{
 	0xd6, 0x90, 0xe9, 0xfe, 0xcc, 0xe1, 0x3d, 0xb7, 0x16, 0xb6, 0x14, 0xc2, 0x28, 0xfb, 0x2c, 0x05,
 	0x2b, 0x67, 0x9a, 0x76, 0x2a, 0xbe, 0x04, 0xc3, 0xaa, 0x44, 0x13, 0x26, 0x49, 0x86, 0x06, 0x99,
@@ -143,7 +142,7 @@ func l0(b uint32) uint32 { return b ^ rl(b, 13) ^ rl(b, 23) }
 
 func feistel0(x0, x1, x2, x3, rk uint32) uint32 { return x0 ^ l0(p(x1^x2^x3^rk)) }
 
-//非线性变换τ(.)
+
 func p(a uint32) uint32 {
 	return (uint32(sbox[a>>24]) << 24) ^ (uint32(sbox[(a>>16)&0xff]) << 16) ^ (uint32(sbox[(a>>8)&0xff]) << 8) ^ uint32(sbox[(a)&0xff])
 }
@@ -164,12 +163,10 @@ func permuteFinalBlock(b []byte, block []uint32) {
 	}
 }
 
-//修改后的加密核心函数
+
 func cryptBlock(subkeys []uint32, b []uint32, r []byte, dst, src []byte, decrypt bool) {
 	permuteInitialBlock(b, src)
 
-	// bounds check elimination in major encryption loop
-	// https://go101.org/article/bounds-check-elimination.html
 	_ = b[3]
 	if decrypt {
 		for i := 0; i < 8; i++ {
@@ -307,7 +304,7 @@ func (k KeySizeError) Error() string {
 	return "SM4: invalid key size " + strconv.Itoa(int(k))
 }
 
-// NewCipher creates and returns a new cipher.Block.
+
 func NewCipher(key []byte) (cipher.Block, error) {
 	if len(key) != BlockSize {
 		return nil, KeySizeError(len(key))

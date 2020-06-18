@@ -1,32 +1,34 @@
 package main
 
 import (
-	"github.com/dannysun85/gmsm/sm3"
+	//"github.com/dannysun85/gmsm/sm3"
 	"crypto/cipher"
 	"github.com/dannysun85/gmsm/sm4"
 	"github.com/dannysun85/gmsm/sm2"
 	"fmt"
+	"log"
+	"bytes"
 )
 
 
 
 func main() {
-	data := "test"
-    h := sm3.New()
-    h.Write([]byte(data))
-    sum := h.Sum(nil)
-	fmt.Printf("digest value is: %x\n",sum)
+	// data := "test"
+    // h := sm3.New()
+    // h.Write([]byte(data))
+    // sum := h.Sum(nil)
+	// fmt.Printf("digest value is: %x\n",sum)
 	
-	// 128比特密钥
-	key := []byte("1234567890abcdef")
-	// 128比特iv
-	iv := make([]byte, sm4.BlockSize)
-	data = []byte("Tongji Fintech Research Institute")
-	ciphertxt,err := sm4Encrypt(key,iv, data)
-	if err != nil{
-		log.Fatal(err)
-	}
-	fmt.Printf("加密结果: %x\n", ciphertxt)
+	// // 128比特密钥
+	// key := []byte("1234567890abcdef")
+	// // 128比特iv
+	// iv := make([]byte, sm4.BlockSize)
+	// data := []byte("123123123123123123123")
+	// ciphertxt,err := sm4Encrypt(key,iv, data)
+	// if err != nil{
+	// 	log.Fatal(err)
+	// }
+	// fmt.Printf("加密结果: %x\n", ciphertxt)
 
 
 

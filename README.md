@@ -1,4 +1,4 @@
-# GM/T Go API使用说明
+# Go API使用说明
 
 ## gmsm包安装
 
@@ -54,11 +54,9 @@ import github.com/dannysun85/gmsm/sm4
     import  "github.com/tjfoc/dannysun85/sm4"
 
     func main(){
-        // 128比特密钥
         key := []byte("1234567890abcdef")
-        // 128比特iv
         iv := make([]byte, sm4.BlockSize)
-        data := []byte("Tongji Fintech Research Institute")
+        data := []byte("12312312312312312")
         ciphertxt,err := sm4Encrypt(key,iv, data)
         if err != nil{
             log.Fatal(err)
@@ -90,7 +88,7 @@ import github.com/dannysun85/gmsm/sm4
     	origData = pkcs5UnPadding(origData)
     	return origData, nil
     }
-    // pkcs5填充
+
     func pkcs5Padding(src []byte, blockSize int) []byte {
         padding := blockSize - len(src)%blockSize
     	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
@@ -127,11 +125,11 @@ import github.com/dannysun85/gmsm/sm2
 ### 代码示例
 
 ```Go
-    priv, err := sm2.GenerateKey() // 生成密钥对
+    priv, err := sm2.GenerateKey() 
     if err != nil {
     	log.Fatal(err)
     }
-    msg := []byte("Tongji Fintech Research Institute")
+    msg := []byte("123456789abcdefg")
     pub := &priv.PublicKey
     ciphertxt, err := pub.Encrypt(msg)
     if err != nil {

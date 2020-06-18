@@ -24,7 +24,6 @@ func decodeBMPString(bmpString []byte) (string, error) {
 		return "", errors.New("go-pkcs12: odd-length BMP string")
 	}
 
-	// strip terminator if present
 	if l := len(bmpString); l >= 2 && bmpString[l-1] == 0 && bmpString[l-2] == 0 {
 		bmpString = bmpString[:l-2]
 	}

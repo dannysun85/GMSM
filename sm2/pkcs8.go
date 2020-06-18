@@ -48,19 +48,16 @@ type EncryptedPrivateKeyInfo struct {
 	EncryptedData       []byte
 }
 
-// reference to https://www.ietf.org/rfc/rfc2898.txt
 type Pbes2Algorithms struct {
 	IdPBES2     asn1.ObjectIdentifier
 	Pbes2Params Pbes2Params
 }
 
-// reference to https://www.ietf.org/rfc/rfc2898.txt
 type Pbes2Params struct {
-	KeyDerivationFunc Pbes2KDfs // PBES2-KDFs
-	EncryptionScheme  Pbes2Encs // PBES2-Encs
+	KeyDerivationFunc Pbes2KDfs 
+	EncryptionScheme  Pbes2Encs 
 }
 
-// reference to https://www.ietf.org/rfc/rfc2898.txt
 type Pbes2KDfs struct {
 	IdPBKDF2    asn1.ObjectIdentifier
 	Pkdf2Params Pkdf2Params
@@ -71,7 +68,6 @@ type Pbes2Encs struct {
 	IV        []byte
 }
 
-// reference to https://www.ietf.org/rfc/rfc2898.txt
 type Pkdf2Params struct {
 	Salt           []byte
 	IterationCount int
@@ -91,7 +87,6 @@ type pkcs8 struct {
 	PrivateKey []byte
 }
 
-// copy from crypto/pbkdf2.go
 func pbkdf(password, salt []byte, iter, keyLen int, h func() hash.Hash) []byte {
 	prf := hmac.New(h, password)
 	hashLen := prf.Size()
@@ -112,7 +107,6 @@ func pbkdf(password, salt []byte, iter, keyLen int, h func() hash.Hash) []byte {
 		T := dk[len(dk)-hashLen:]
 		copy(U, T)
 
-		// U_n = PRF(password, U_(n-1))
 		for n := 2; n <= iter; n++ {
 			prf.Reset()
 			prf.Write(U)
@@ -153,7 +147,7 @@ func MarshalSm2PublicKey(key *PublicKey) ([]byte, error) {
 	algo.Parameters.Class = 0
 	algo.Parameters.Tag = 6
 	algo.Parameters.IsCompound = false
-	algo.Parameters.FullBytes = []byte{6, 8, 42, 129, 28, 207, 85, 1, 130, 45} // asn1.Marshal(asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 301})
+	algo.Parameters.FullBytes = []byte{6, 8, 42, 129, 28, 207, 85, 1, 130, 45} 
 	r.Algo = algo
 	r.BitString = asn1.BitString{Bytes: elliptic.Marshal(key.Curve, key.X, key.Y)}
 	return asn1.Marshal(r)
@@ -268,7 +262,7 @@ func MarshalSm2UnecryptedPrivateKey(key *PrivateKey) ([]byte, error) {
 	algo.Parameters.Class = 0
 	algo.Parameters.Tag = 6
 	algo.Parameters.IsCompound = false
-	algo.Parameters.FullBytes = []byte{6, 8, 42, 129, 28, 207, 85, 1, 130, 45} // asn1.Marshal(asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 301})
+	algo.Parameters.FullBytes = []byte{6, 8, 42, 129, 28, 207, 85, 1, 130, 45} 
 	priv.Version = 1
 	priv.NamedCurveOID = oidNamedCurveP256SM2
 	priv.PublicKey = asn1.BitString{Bytes: elliptic.Marshal(key.Curve, key.X, key.Y)}
@@ -289,7 +283,7 @@ func MarshalSm2EcryptedPrivateKey(PrivKey *PrivateKey, pwd []byte) ([]byte, erro
 	iv := make([]byte, 16)
 	rand.Reader.Read(salt)
 	rand.Reader.Read(iv)
-	key := pbkdf(pwd, salt, iter, 32, sha1.New) // 默认是SHA1
+	key := pbkdf(pwd, salt, iter, 32, sha1.New) 
 	padding := aes.BlockSize - len(der)%aes.BlockSize
 	if padding > 0 {
 		n := len(der)

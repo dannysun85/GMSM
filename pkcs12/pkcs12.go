@@ -82,14 +82,11 @@ func (i *encryptedPrivateKeyInfo) SetData(data []byte) {
 	i.EncryptedData = data
 }
 
-// PEM block types
 const (
 	certificateType = "CERTIFICATE"
 	privateKeyType  = "PRIVATE KEY"
 )
 
-// unmarshal calls asn1.Unmarshal, but also returns an error if there is any
-// trailing data after unmarshaling.
 func unmarshal(in []byte, out interface{}) error {
 	trailing, err := asn1.Unmarshal(in, out)
 	if err != nil {
@@ -101,7 +98,6 @@ func unmarshal(in []byte, out interface{}) error {
 	return nil
 }
 
-// ConvertToPEM converts all "safe bags" contained in pfxData to PEM blocks.
 func ToPEM(pfxData []byte, password string) ([]*pem.Block, error) {
 	encodedPassword, err := bmpString(password)
 	if err != nil {
@@ -178,7 +174,6 @@ func convertAttribute(attribute *pkcs12Attribute) (key, value string, err error)
 	case attribute.Id.Equal(oidLocalKeyID):
 		key = "localKeyId"
 	case attribute.Id.Equal(oidMicrosoftCSPName):
-		// This key is chosen to match OpenSSL.
 		key = "Microsoft CSP Name"
 		isString = true
 	default:
@@ -203,7 +198,6 @@ func convertAttribute(attribute *pkcs12Attribute) (key, value string, err error)
 	return key, value, nil
 }
 
-// DecodeAll extracts all certificates and a private key from pfxData.
 func DecodeAll(pfxData []byte, password string) (privateKey interface{}, certificate []*sm2.Certificate, err error) {
 	encodedPassword, err := bmpString(password)
 	if err != nil {
@@ -214,11 +208,6 @@ func DecodeAll(pfxData []byte, password string) (privateKey interface{}, certifi
 	if err != nil {
 		return nil, nil, err
 	}
-
-	//	if len(bags) != 2 {
-	//		err = errors.New("go-pkcs12: expected exactly two safe bags in the PFX PDU")
-	//		return
-	//	}
 
 	for _, bag := range bags {
 		switch {
@@ -262,9 +251,6 @@ func DecodeAll(pfxData []byte, password string) (privateKey interface{}, certifi
 	return
 }
 
-// Decode extracts a certificate and private key from pfxData. This function
-// assumes that there is only one certificate and only one private key in the
-// pfxData.
 func Decode(pfxData []byte, password string) (privateKey interface{}, certificate *x509.Certificate, err error) {
 	encodedPassword, err := bmpString(password)
 	if err != nil {
@@ -275,11 +261,6 @@ func Decode(pfxData []byte, password string) (privateKey interface{}, certificat
 	if err != nil {
 		return nil, nil, err
 	}
-
-	//	if len(bags) != 2 {
-	//		err = errors.New("go-pkcs12: expected exactly two safe bags in the PFX PDU")
-	//		return
-	//	}
 
 	for _, bag := range bags {
 		switch {
@@ -337,7 +318,6 @@ func getSafeContents(p12Data, password []byte) (bags []safeBag, updatedPassword 
 		return nil, nil, NotImplementedError("only password-protected PFX is implemented")
 	}
 
-	// unmarshal the explicit bytes in the content for type 'data'
 	if err := unmarshal(pfx.AuthSafe.Content.Bytes, &pfx.AuthSafe.Content); err != nil {
 		return nil, nil, err
 	}
@@ -348,9 +328,6 @@ func getSafeContents(p12Data, password []byte) (bags []safeBag, updatedPassword 
 
 	if err := verifyMac(&pfx.MacData, pfx.AuthSafe.Content.Bytes, password); err != nil {
 		if err == ErrIncorrectPassword && len(password) == 2 && password[0] == 0 && password[1] == 0 {
-			// some implementations use an empty byte array
-			// for the empty string password try one more
-			// time with empty-empty password
 			password = nil
 			err = verifyMac(&pfx.MacData, pfx.AuthSafe.Content.Bytes, password)
 		}
@@ -401,11 +378,6 @@ func getSafeContents(p12Data, password []byte) (bags []safeBag, updatedPassword 
 	return bags, password, nil
 }
 
-// Encode produces pfxData containing one private key, an end-entity certificate, and any number of CA certificates.
-// It emulates the behavior of OpenSSL's PKCS12_create: it creates two SafeContents: one that's encrypted with RC2
-// and contains the certificates, and another that is unencrypted and contains the private key shrouded with 3DES.
-// The private key bag and the end-entity certificate bag have the LocalKeyId attribute set to the SHA-1 fingerprint
-// of the end-entity certificate.
 func Encode(privateKey interface{}, certificate *sm2.Certificate, caCerts []*x509.Certificate, password string) (pfxData []byte, err error) {
 	encodedPassword, err := bmpString(password)
 	if err != nil {
@@ -449,9 +421,6 @@ func Encode(privateKey interface{}, certificate *sm2.Certificate, caCerts []*x50
 	}
 	keyBag.Attributes = append(keyBag.Attributes, localKeyIdAttr)
 
-	// Construct an authenticated safe with two SafeContents.
-	// The first SafeContents is encrypted and contains the cert bags.
-	// The second SafeContents is unencrypted and contains the shrouded key bag.
 	var authenticatedSafe [2]contentInfo
 	if authenticatedSafe[0], err = makeSafeContents(certBags, encodedPassword); err != nil {
 		return nil, err
@@ -465,7 +434,6 @@ func Encode(privateKey interface{}, certificate *sm2.Certificate, caCerts []*x50
 		return nil, err
 	}
 
-	// compute the MAC
 	pfx.MacData.Mac.Algorithm.Algorithm = oidSHA1
 	pfx.MacData.MacSalt = make([]byte, 8)
 	if _, err = rand.Read(pfx.MacData.MacSalt); err != nil {

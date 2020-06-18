@@ -14,29 +14,14 @@ import (
 type InvalidReason int
 
 const (
-	// NotAuthorizedToSign results when a certificate is signed by another
-	// which isn't marked as a CA certificate.
 	NotAuthorizedToSign InvalidReason = iota
-	// Expired results when a certificate has expired, based on the time
-	// given in the VerifyOptions.
 	Expired
-	// CANotAuthorizedForThisName results when an intermediate or root
-	// certificate has a name constraint which doesn't include the name
-	// being checked.
 	CANotAuthorizedForThisName
-	// TooManyIntermediates results when a path length constraint is
-	// violated.
 	TooManyIntermediates
-	// IncompatibleUsage results when the certificate's key usage indicates
-	// that it may only be used for a different purpose.
 	IncompatibleUsage
-	// NameMismatch results when the subject name of a parent certificate
-	// does not match the issuer name in the child.
 	NameMismatch
 )
 
-// CertificateInvalidError results when an odd error occurs. Users of this
-// library probably want to handle all these errors uniformly.
 type CertificateInvalidError struct {
 	Cert   *Certificate
 	Reason InvalidReason
@@ -60,8 +45,6 @@ func (e CertificateInvalidError) Error() string {
 	return "x509: unknown error"
 }
 
-// HostnameError results when the set of authorized names doesn't match the
-// requested name.
 type HostnameError struct {
 	Certificate *Certificate
 	Host        string
@@ -72,7 +55,6 @@ func (h HostnameError) Error() string {
 
 	var valid string
 	if ip := net.ParseIP(h.Host); ip != nil {
-		// Trying to validate an IP
 		if len(c.IPAddresses) == 0 {
 			return "x509: cannot validate certificate for " + h.Host + " because it doesn't contain any IP SANs"
 		}
@@ -96,14 +78,9 @@ func (h HostnameError) Error() string {
 	return "x509: certificate is valid for " + valid + ", not " + h.Host
 }
 
-// UnknownAuthorityError results when the certificate issuer is unknown
 type UnknownAuthorityError struct {
 	Cert *Certificate
-	// hintErr contains an error that may be helpful in determining why an
-	// authority wasn't found.
 	hintErr error
-	// hintCert contains a possible authority certificate that was rejected
-	// because of the error in hintErr.
 	hintCert *Certificate
 }
 
@@ -123,7 +100,6 @@ func (e UnknownAuthorityError) Error() string {
 	return s
 }
 
-// SystemRootsError results when we fail to load the system root certificates.
 type SystemRootsError struct {
 	Err error
 }
@@ -136,21 +112,14 @@ func (se SystemRootsError) Error() string {
 	return msg
 }
 
-// errNotParsed is returned when a certificate without ASN.1 contents is
-// verified. Platform-specific verification needs the ASN.1 contents.
 var errNotParsed = errors.New("x509: missing ASN.1 contents; use ParseCertificate")
 
-// VerifyOptions contains parameters for Certificate.Verify. It's a structure
-// because other PKIX verification APIs have ended up needing many options.
+
 type VerifyOptions struct {
 	DNSName       string
 	Intermediates *CertPool
-	Roots         *CertPool // if nil, the system roots are used
-	CurrentTime   time.Time // if zero, the current time is used
-	// KeyUsage specifies which Extended Key Usage values are acceptable.
-	// An empty list means ExtKeyUsageServerAuth. Key usage is considered a
-	// constraint down the chain which mirrors Windows CryptoAPI behavior,
-	// but not the spec. To accept any key usage, include ExtKeyUsageAny.
+	Roots         *CertPool 
+	CurrentTime   time.Time 
 	KeyUsages []ExtKeyUsage
 }
 
@@ -161,8 +130,6 @@ const (
 )
 
 func matchNameConstraint(domain, constraint string) bool {
-	// The meaning of zero length constraints is not specified, but this
-	// code follows NSS and accepts them as valid for everything.
 	if len(constraint) == 0 {
 		return true
 	}
@@ -185,7 +152,6 @@ func matchNameConstraint(domain, constraint string) bool {
 	return isSubdomain != constraintHasLeadingDot
 }
 
-// isValid performs validity checks on the c.
 func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *VerifyOptions) error {
 	if len(currentChain) > 0 {
 		child := currentChain[len(currentChain)-1]
@@ -214,22 +180,7 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 		}
 	}
 
-	// KeyUsage status flags are ignored. From Engineering Security, Peter
-	// Gutmann: A European government CA marked its signing certificates as
-	// being valid for encryption only, but no-one noticed. Another
-	// European CA marked its signature keys as not being valid for
-	// signatures. A different CA marked its own trusted root certificate
-	// as being invalid for certificate signing. Another national CA
-	// distributed a certificate to be used to encrypt data for the
-	// country’s tax authority that was marked as only being usable for
-	// digital signatures but not for encryption. Yet another CA reversed
-	// the order of the bit flags in the keyUsage due to confusion over
-	// encoding endianness, essentially setting a random keyUsage in
-	// certificates that it issued. Another CA created a self-invalidating
-	// certificate by adding a certificate policy statement stipulating
-	// that the certificate had to be used strictly as specified in the
-	// keyUsage, and a keyUsage containing a flag indicating that the RSA
-	// encryption key could only be used for Diffie-Hellman key agreement.
+	
 
 	if certType == intermediateCertificate && (!c.BasicConstraintsValid || !c.IsCA) {
 		return CertificateInvalidError{c, NotAuthorizedToSign}
@@ -245,18 +196,7 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 	return nil
 }
 
-// Verify attempts to verify c by building one or more chains from c to a
-// certificate in opts.Roots, using certificates in opts.Intermediates if
-// needed. If successful, it returns one or more chains where the first
-// element of the chain is c and the last element is from opts.Roots.
-//
-// If opts.Roots is nil and system roots are unavailable the returned error
-// will be of type SystemRootsError.
-//
-// WARNING: this doesn't do any revocation checking.
 func (c *Certificate) Verify(opts VerifyOptions) (chains [][]*Certificate, err error) {
-	// Platform-specific verification needs the ASN.1 contents so
-	// this makes the behavior consistent across platforms.
 	if len(c.Raw) == 0 {
 		return nil, errNotParsed
 	}
@@ -268,7 +208,6 @@ func (c *Certificate) Verify(opts VerifyOptions) (chains [][]*Certificate, err e
 		}
 	}
 
-	// Use Windows's own verification and chain building.
 	if opts.Roots == nil && runtime.GOOS == "windows" {
 		return c.systemVerify(&opts)
 	}
@@ -310,7 +249,6 @@ func (c *Certificate) Verify(opts VerifyOptions) (chains [][]*Certificate, err e
 		keyUsages = []ExtKeyUsage{ExtKeyUsageServerAuth}
 	}
 
-	// If any key usage is acceptable then we're done.
 	for _, usage := range keyUsages {
 		if usage == ExtKeyUsageAny {
 			chains = candidateChains
@@ -423,16 +361,10 @@ func matchHostnames(pattern, host string) bool {
 	return true
 }
 
-// toLowerCaseASCII returns a lower-case version of in. See RFC 6125 6.4.1. We use
-// an explicitly ASCII function to avoid any sharp corners resulting from
-// performing Unicode operations on DNS labels.
 func toLowerCaseASCII(in string) string {
-	// If the string is already lower-case then there's nothing to do.
 	isAlreadyLowerCase := true
 	for _, c := range in {
 		if c == utf8.RuneError {
-			// If we get a UTF-8 error then there might be
-			// upper-case ASCII bytes in the invalid sequence.
 			isAlreadyLowerCase = false
 			break
 		}
@@ -455,17 +387,12 @@ func toLowerCaseASCII(in string) string {
 	return string(out)
 }
 
-// VerifyHostname returns nil if c is a valid certificate for the named host.
-// Otherwise it returns an error describing the mismatch.
 func (c *Certificate) VerifyHostname(h string) error {
-	// IP addresses may be written in [ ].
 	candidateIP := h
 	if len(h) >= 3 && h[0] == '[' && h[len(h)-1] == ']' {
 		candidateIP = h[1 : len(h)-1]
 	}
 	if ip := net.ParseIP(candidateIP); ip != nil {
-		// We only match IP addresses against IP SANs.
-		// https://tools.ietf.org/html/rfc6125#appendix-B.2
 		for _, candidate := range c.IPAddresses {
 			if ip.Equal(candidate) {
 				return nil
@@ -482,7 +409,6 @@ func (c *Certificate) VerifyHostname(h string) error {
 				return nil
 			}
 		}
-		// If Subject Alt Name is given, we ignore the common name.
 	} else if matchHostnames(toLowerCaseASCII(c.Subject.CommonName), lowered) {
 		return nil
 	}
@@ -500,21 +426,16 @@ func checkChainForKeyUsage(chain []*Certificate, keyUsages []ExtKeyUsage) bool {
 
 	usagesRemaining := len(usages)
 
-	// We walk down the list and cross out any usages that aren't supported
-	// by each certificate. If we cross out all the usages, then the chain
-	// is unacceptable.
 
 NextCert:
 	for i := len(chain) - 1; i >= 0; i-- {
 		cert := chain[i]
 		if len(cert.ExtKeyUsage) == 0 && len(cert.UnknownExtKeyUsage) == 0 {
-			// The certificate doesn't have any extended key usage specified.
 			continue
 		}
 
 		for _, usage := range cert.ExtKeyUsage {
 			if usage == ExtKeyUsageAny {
-				// The certificate is explicitly good for any usage.
 				continue NextCert
 			}
 		}
@@ -533,10 +454,6 @@ NextCert:
 				} else if requestedUsage == ExtKeyUsageServerAuth &&
 					(usage == ExtKeyUsageNetscapeServerGatedCrypto ||
 						usage == ExtKeyUsageMicrosoftServerGatedCrypto) {
-					// In order to support COMODO
-					// certificate chains, we have to
-					// accept Netscape or Microsoft SGC
-					// usages as equal to ServerAuth.
 					continue NextRequestedUsage
 				}
 			}

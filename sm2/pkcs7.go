@@ -9,7 +9,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/rsa"
-	_ "crypto/sha1" // for crypto.SHA1
+	_ "crypto/sha1" 
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"errors"
@@ -19,7 +19,6 @@ import (
 	"time"
 )
 
-// PKCS7 Represents a PKCS7 structure
 type PKCS7 struct {
 	Content      []byte
 	Certificates []*Certificate
@@ -33,9 +32,6 @@ type contentInfo struct {
 	Content     asn1.RawValue `asn1:"explicit,optional,tag:0"`
 }
 
-// ErrUnsupportedContentType is returned when a PKCS7 content is not supported.
-// Currently only Data (1.2.156.10197.6.1.4.2.1), Signed Data (1.2.156.10197.6.1.4.2.2),
-// and Enveloped Data are supported (1.2.156.10197.6.1.4.2.3)
 var ErrUnsupportedContentType = errors.New("pkcs7: cannot parse data: unimplemented content type")
 
 type unsignedData []byte
@@ -97,8 +93,6 @@ type issuerAndSerial struct {
 	SerialNumber *big.Int
 }
 
-// MessageDigestMismatchError is returned when the signer data digest does not
-// match the computed digest for the contained content
 type MessageDigestMismatchError struct {
 	ExpectedDigest []byte
 	ActualDigest   []byte
@@ -118,7 +112,6 @@ type signerInfo struct {
 	UnauthenticatedAttributes []attribute `asn1:"optional,tag:1"`
 }
 
-// ParsePKCS7 decodes a DER encoded PKCS7.
 func ParsePKCS7(data []byte) (p7 *PKCS7, err error) {
 	if len(data) == 0 {
 		return nil, errors.New("pkcs7: input data is empty")
@@ -138,7 +131,6 @@ func ParsePKCS7(data []byte) (p7 *PKCS7, err error) {
 		return
 	}
 
-	// fmt.Printf("--> Content Type: %s", info.ContentType)
 	switch {
 	case info.ContentType.Equal(oidSignedData):
 		return parseSignedData(info.Content.Bytes)
@@ -157,24 +149,20 @@ func parseSignedData(data []byte) (*PKCS7, error) {
 	if err != nil {
 		return nil, err
 	}
-	// fmt.Printf("--> Signed Data Version %d\n", sd.Version)
 
 	var compound asn1.RawValue
 	var content unsignedData
 
-	// The Content.Bytes maybe empty on PKI responses.
 	if len(sd.ContentInfo.Content.Bytes) > 0 {
 		if _, err := asn1.Unmarshal(sd.ContentInfo.Content.Bytes, &compound); err != nil {
 			return nil, err
 		}
 	}
-	// Compound octet string
 	if compound.IsCompound {
 		if _, err = asn1.Unmarshal(compound.Bytes, &content); err != nil {
 			return nil, err
 		}
 	} else {
-		// assuming this is tag 04
 		content = compound.Bytes
 	}
 	return &PKCS7{
@@ -208,9 +196,7 @@ func parseEnvelopedData(data []byte) (*PKCS7, error) {
 	}, nil
 }
 
-// Verify checks the signatures of a PKCS7 object
-// WARNING: Verify does not check signing time or verify certificate chains at
-// this time.
+
 func (p7 *PKCS7) Verify() (err error) {
 	if len(p7.Signers) == 0 {
 		return errors.New("pkcs7: Message has no signers")
@@ -229,7 +215,6 @@ func verifySignature(p7 *PKCS7, signer signerInfo) error {
 	if err != nil {
 		return err
 	}
-	// fmt.Println("===== hash algo=====:", hash)
 	if len(signer.AuthenticatedAttributes) > 0 {
 		var digest []byte
 		err := unmarshalAttribute(signer.AuthenticatedAttributes, oidAttributeMessageDigest, &digest)
@@ -245,8 +230,6 @@ func verifySignature(p7 *PKCS7, signer signerInfo) error {
 				ActualDigest:   computed,
 			}
 		}
-		// TODO(shengzhi): Optionally verify certificate chain
-		// TODO(shengzhi): Optionally verify signingTime against certificate NotAfter/NotBefore
 		signedData, err = marshalAttributes(signer.AuthenticatedAttributes)
 		if err != nil {
 			return err
@@ -288,7 +271,6 @@ func marshalAttributes(attrs []attribute) ([]byte, error) {
 		return nil, err
 	}
 
-	// Remove the leading sequence octets
 	var raw asn1.RawValue
 	asn1.Unmarshal(encodedAttributes, &raw)
 	return raw.Bytes, nil
@@ -321,8 +303,6 @@ func getHashForOID(oid asn1.ObjectIdentifier) (Hash, error) {
 	return Hash(0), ErrPKCS7UnsupportedAlgorithm
 }
 
-// GetOnlySigner returns an x509.Certificate for the first signer of the signed
-// data payload. If there are more or less than one signer, nil is returned
 func (p7 *PKCS7) GetOnlySigner() *Certificate {
 	if len(p7.Signers) != 1 {
 		return nil
@@ -331,13 +311,10 @@ func (p7 *PKCS7) GetOnlySigner() *Certificate {
 	return getCertFromCertsByIssuerAndSerial(p7.Certificates, signer.IssuerAndSerialNumber)
 }
 
-// ErrPKCS7UnsupportedAlgorithm tells you when our quick dev assumptions have failed
 var ErrPKCS7UnsupportedAlgorithm = errors.New("pkcs7: cannot decrypt data: only RSA, DES, DES-EDE3, AES-256-CBC and AES-128-GCM supported")
 
-// ErrNotEncryptedContent is returned when attempting to Decrypt data that is not encrypted data
 var ErrNotEncryptedContent = errors.New("pkcs7: content data is a decryptable data type")
 
-// Decrypt decrypts encrypted content info for recipient cert and private key
 func (p7 *PKCS7) Decrypt(cert *Certificate, pk crypto.PrivateKey) ([]byte, error) {
 	data, ok := p7.raw.(envelopedData)
 	if !ok {
@@ -356,7 +333,6 @@ func (p7 *PKCS7) Decrypt(cert *Certificate, pk crypto.PrivateKey) ([]byte, error
 		return data.EncryptedContentInfo.decrypt(contentKey)
 	}
 	fmt.Printf("Unsupported Private Key: %v\n", pk)
-	// TODO: SM decript
 	return nil, ErrPKCS7UnsupportedAlgorithm
 }
 
@@ -377,11 +353,8 @@ func (eci encryptedContentInfo) decrypt(key []byte) ([]byte, error) {
 		return nil, ErrPKCS7UnsupportedAlgorithm
 	}
 
-	// EncryptedContent can either be constructed of multple OCTET STRINGs
-	// or _be_ a tagged OCTET STRING
 	var cyphertext []byte
 	if eci.EncryptedContent.IsCompound {
-		// Complex case to concat all of the children OCTET STRINGs
 		var buf bytes.Buffer
 		cypherbytes := eci.EncryptedContent.Bytes
 		for {
@@ -394,7 +367,6 @@ func (eci encryptedContentInfo) decrypt(key []byte) ([]byte, error) {
 		}
 		cyphertext = buf.Bytes()
 	} else {
-		// Simple case, the bytes _are_ the cyphertext
 		cyphertext = eci.EncryptedContent.Bytes
 	}
 
@@ -491,10 +463,8 @@ func unpad(data []byte, blocklen int) ([]byte, error) {
 		return nil, fmt.Errorf("invalid data len %d", len(data))
 	}
 
-	// the last byte is the length of padding
 	padlen := int(data[len(data)-1])
 
-	// check padding integrity, all bytes should be the same
 	pad := data[len(data)-padlen:]
 	for _, padbyte := range pad {
 		if padbyte != byte(padlen) {
@@ -515,7 +485,6 @@ func unmarshalAttribute(attrs []attribute, attributeType asn1.ObjectIdentifier, 
 	return errors.New("pkcs7: attribute type not in attributes")
 }
 
-// UnmarshalSignedAttribute decodes a single attribute from the signer info
 func (p7 *PKCS7) UnmarshalSignedAttribute(attributeType asn1.ObjectIdentifier, out interface{}) error {
 	sd, ok := p7.raw.(signedData)
 	if !ok {
@@ -528,26 +497,21 @@ func (p7 *PKCS7) UnmarshalSignedAttribute(attributeType asn1.ObjectIdentifier, o
 	return unmarshalAttribute(attributes, attributeType, out)
 }
 
-// SignedData is an opaque data structure for creating signed data payloads
 type SignedData struct {
 	sd            signedData
 	certs         []*Certificate
 	messageDigest []byte
 }
 
-// Attribute represents a key value pair attribute. Value must be marshalable byte
-// `encoding/asn1`
 type Attribute struct {
 	Type  asn1.ObjectIdentifier
 	Value interface{}
 }
 
-// SignerInfoConfig are optional values to include when adding a signer
 type SignerInfoConfig struct {
 	ExtraSignedAttributes []Attribute
 }
 
-// NewSignedData initializes a SignedData with content
 func NewSignedData(data []byte) (*SignedData, error) {
 	content, err := asn1.Marshal(data)
 	if err != nil {
@@ -576,7 +540,6 @@ type attributes struct {
 	values []interface{}
 }
 
-// Add adds the attribute, maintaining insertion order
 func (attrs *attributes) Add(attrType asn1.ObjectIdentifier, value interface{}) {
 	attrs.types = append(attrs.types, attrType)
 	attrs.values = append(attrs.values, value)
@@ -620,7 +583,7 @@ func (attrs *attributes) ForMarshaling() ([]attribute, error) {
 		}
 		attr := attribute{
 			Type:  attrType,
-			Value: asn1.RawValue{Tag: 17, IsCompound: true, Bytes: asn1Value}, // 17 == SET tag
+			Value: asn1.RawValue{Tag: 17, IsCompound: true, Bytes: asn1Value}, 
 		}
 		encoded, err := asn1.Marshal(attr)
 		if err != nil {
@@ -635,7 +598,6 @@ func (attrs *attributes) ForMarshaling() ([]attribute, error) {
 	return sortables.Attributes(), nil
 }
 
-// AddSigner signs attributes about the content and adds certificate to payload
 func (sd *SignedData) AddSigner(cert *Certificate, pkey crypto.PrivateKey, config SignerInfoConfig) error {
 	attrs := &attributes{}
 	attrs.Add(oidAttributeContentType, sd.sd.ContentInfo.ContentType)
@@ -666,24 +628,19 @@ func (sd *SignedData) AddSigner(cert *Certificate, pkey crypto.PrivateKey, confi
 		EncryptedDigest:           signature,
 		Version:                   1,
 	}
-	// create signature of signed attributes
 	sd.certs = append(sd.certs, cert)
 	sd.sd.SignerInfos = append(sd.sd.SignerInfos, signer)
 	return nil
 }
 
-// AddCertificate adds the certificate to the payload. Useful for parent certificates
 func (sd *SignedData) AddCertificate(cert *Certificate) {
 	sd.certs = append(sd.certs, cert)
 }
 
-// Detach removes content from the signed data struct to make it a detached signature.
-// This must be called right before Finish()
 func (sd *SignedData) Detach() {
 	sd.sd.ContentInfo = contentInfo{ContentType: oidData}
 }
 
-// Finish marshals the content and its signers
 func (sd *SignedData) Finish() ([]byte, error) {
 	sd.sd.Certificates = marshalCertificates(sd.certs)
 	inner, err := asn1.Marshal(sd.sd)
@@ -699,15 +656,12 @@ func (sd *SignedData) Finish() ([]byte, error) {
 
 func cert2issuerAndSerial(cert *Certificate) (issuerAndSerial, error) {
 	var ias issuerAndSerial
-	// The issuer RDNSequence has to match exactly the sequence in the certificate
-	// We cannot use cert.Issuer.ToRDNSequence() here since it mangles the sequence
 	ias.IssuerName = asn1.RawValue{FullBytes: cert.RawIssuer}
 	ias.SerialNumber = cert.SerialNumber
 
 	return ias, nil
 }
 
-// signs the DER encoded form of the attributes with the private key
 func signAttributes(attrs []attribute, pkey crypto.PrivateKey, hash crypto.Hash) ([]byte, error) {
 	attrBytes, err := marshalAttributes(attrs)
 	if err != nil {
@@ -723,7 +677,6 @@ func signAttributes(attrs []attribute, pkey crypto.PrivateKey, hash crypto.Hash)
 	return nil, ErrPKCS7UnsupportedAlgorithm
 }
 
-// concats and wraps the certificates in the RawValue structure
 func marshalCertificates(certs []*Certificate) rawCertificates {
 	var buf bytes.Buffer
 	for _, cert := range certs {
@@ -733,9 +686,6 @@ func marshalCertificates(certs []*Certificate) rawCertificates {
 	return rawCerts
 }
 
-// Even though, the tag & length are stripped out during marshalling the
-// RawContent, we have to encode it into the RawContent. If its missing,
-// then `asn1.Marshal()` will strip out the certificate wrapper instead.
 func marshalCertificateBytes(certs []byte) (rawCertificates, error) {
 	var val = asn1.RawValue{Bytes: certs, Class: 2, Tag: 0, IsCompound: true}
 	b, err := asn1.Marshal(val)
@@ -745,8 +695,6 @@ func marshalCertificateBytes(certs []byte) (rawCertificates, error) {
 	return rawCertificates{Raw: b}, nil
 }
 
-// DegenerateCertificate creates a signed data structure containing only the
-// provided certificate or certificate chain.
 func DegenerateCertificate(cert []byte) ([]byte, error) {
 	rawCert, err := marshalCertificateBytes(cert)
 	if err != nil {
@@ -775,13 +723,8 @@ const (
 	EncryptionAlgorithmAES128GCM
 )
 
-// ContentEncryptionAlgorithm determines the algorithm used to encrypt the
-// plaintext message. Change the value of this variable to change which
-// algorithm is used in the Encrypt() function.
 var ContentEncryptionAlgorithm = EncryptionAlgorithmDESCBC
 
-// ErrUnsupportedEncryptionAlgorithm is returned when attempting to encrypt
-// content with an unsupported algorithm.
 var ErrUnsupportedEncryptionAlgorithm = errors.New("pkcs7: cannot encrypt content: only DES-CBC and AES-128-GCM supported")
 
 const nonceSize = 12
@@ -792,7 +735,6 @@ type aesGCMParameters struct {
 }
 
 func encryptAES128GCM(content []byte) ([]byte, *encryptedContentInfo, error) {
-	// Create AES key and nonce
 	key := make([]byte, 16)
 	nonce := make([]byte, nonceSize)
 
@@ -806,7 +748,6 @@ func encryptAES128GCM(content []byte) ([]byte, *encryptedContentInfo, error) {
 		return nil, nil, err
 	}
 
-	// Encrypt content
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, nil, err
@@ -819,7 +760,6 @@ func encryptAES128GCM(content []byte) ([]byte, *encryptedContentInfo, error) {
 
 	ciphertext := gcm.Seal(nil, nonce, content, nil)
 
-	// Prepare ASN.1 Encrypted Content Info
 	paramSeq := aesGCMParameters{
 		Nonce:  nonce,
 		ICVLen: gcm.Overhead(),
@@ -846,7 +786,6 @@ func encryptAES128GCM(content []byte) ([]byte, *encryptedContentInfo, error) {
 }
 
 func encryptDESCBC(content []byte) ([]byte, *encryptedContentInfo, error) {
-	// Create DES key & CBC IV
 	key := make([]byte, 8)
 	iv := make([]byte, des.BlockSize)
 	_, err := rand.Read(key)
@@ -858,7 +797,6 @@ func encryptDESCBC(content []byte) ([]byte, *encryptedContentInfo, error) {
 		return nil, nil, err
 	}
 
-	// Encrypt padded content
 	block, err := des.NewCipher(key)
 	if err != nil {
 		return nil, nil, err
@@ -868,7 +806,6 @@ func encryptDESCBC(content []byte) ([]byte, *encryptedContentInfo, error) {
 	cyphertext := make([]byte, len(plaintext))
 	mode.CryptBlocks(cyphertext, plaintext)
 
-	// Prepare ASN.1 Encrypted Content Info
 	eci := encryptedContentInfo{
 		ContentType: oidData,
 		ContentEncryptionAlgorithm: pkix.AlgorithmIdentifier{
@@ -881,23 +818,12 @@ func encryptDESCBC(content []byte) ([]byte, *encryptedContentInfo, error) {
 	return key, &eci, nil
 }
 
-// Encrypt creates and returns an envelope data PKCS7 structure with encrypted
-// recipient keys for each recipient public key.
-//
-// The algorithm used to perform encryption is determined by the current value
-// of the global ContentEncryptionAlgorithm package variable. By default, the
-// value is EncryptionAlgorithmDESCBC. To use a different algorithm, change the
-// value before calling Encrypt(). For example:
-//
-//     ContentEncryptionAlgorithm = EncryptionAlgorithmAES128GCM
-//
-// TODO(fullsailor): Add support for encrypting content with other algorithms
+
 func PKCS7Encrypt(content []byte, recipients []*Certificate) ([]byte, error) {
 	var eci *encryptedContentInfo
 	var key []byte
 	var err error
 
-	// Apply chosen symmetric encryption method
 	switch ContentEncryptionAlgorithm {
 	case EncryptionAlgorithmDESCBC:
 		key, eci, err = encryptDESCBC(content)
@@ -913,7 +839,6 @@ func PKCS7Encrypt(content []byte, recipients []*Certificate) ([]byte, error) {
 		return nil, err
 	}
 
-	// Prepare each recipient's encrypted cipher key
 	recipientInfos := make([]recipientInfo, len(recipients))
 	for i, recipient := range recipients {
 		encrypted, err := encryptKey(key, recipient)
@@ -935,7 +860,6 @@ func PKCS7Encrypt(content []byte, recipients []*Certificate) ([]byte, error) {
 		recipientInfos[i] = info
 	}
 
-	// Prepare envelope content
 	envelope := envelopedData{
 		EncryptedContentInfo: *eci,
 		Version:              0,
@@ -946,7 +870,6 @@ func PKCS7Encrypt(content []byte, recipients []*Certificate) ([]byte, error) {
 		return nil, err
 	}
 
-	// Prepare outer payload structure
 	wrapper := contentInfo{
 		ContentType: oidEnvelopedData,
 		Content:     asn1.RawValue{Class: 2, Tag: 0, IsCompound: true, Bytes: innerContent},
